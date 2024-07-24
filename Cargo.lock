@@ -566,6 +566,7 @@ dependencies = [
 name = "paperlessngx-ollama"
 version = "0.1.0"
 dependencies = [
+ "form_urlencoded",
  "json",
  "ollama-rs",
  "reqwest",

@@ -2,13 +2,20 @@ use ollama_rs::generation::completion::request::GenerationRequest;
 use ollama_rs::generation::parameters::FormatType;
 use ollama_rs::Ollama;
 use reqwest::{Client, Error};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Debug)]
+struct DocumentUpdateRequest {
+    tags: Vec<u32>,
+    title: String,
+}
 
 #[derive(Deserialize, Debug)]
 struct Document {
     id: u32,
+    tags: Vec<u32>,
     content: String,
-    ollama_summary: Option<String>
+    ollama_summary: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -27,8 +34,47 @@ async fn main() {
         .unwrap();
 
     documents = generate_documents_summary_via_ollama(documents).await;
+    for document in documents {
+        update_document(
+            document,
+            env!("PAPERLESSNGX_URL").to_string(),
+            env!("PAPERLESSNGX_TAGS").to_string(),
+        ).await;
+    }
+}
 
-    println!("{:?}", documents)
+async fn update_document(document: Document, paperless_url: String, paperless_tag: String) {
+    let document_updates = DocumentUpdateRequest {
+        title: document.ollama_summary.unwrap(),
+        tags: document.tags.iter()
+            .copied()
+            .filter(|&x| x.to_string() != paperless_tag)
+            .collect(),
+    };
+
+    let request_url = format!(
+        "{paperless_url}/api/documents/{document_id}/",
+        document_id = document.id
+    );
+    let response = Client::new()
+        .patch(&request_url)
+        .header(
+            "Authorization",
+            format!(
+                "Token {paperless_token}",
+                paperless_token = env!("PAPERLESSNGX_TOKEN").to_string()
+            ),
+        )
+        .json(&document_updates)
+        .send()
+        .await
+        .unwrap();
+
+    if response.status().is_success() {
+        println!("Document {} updated", document.id)
+    } else {
+        panic!("Couldn't update document {} {:?}", document.id, response)
+    }
 }
 
 async fn generate_documents_summary_via_ollama(documents: Vec<Document>) -> Vec<Document> {
