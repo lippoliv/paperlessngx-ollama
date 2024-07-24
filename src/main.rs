@@ -8,6 +8,7 @@ use serde::Deserialize;
 struct Document {
     id: u32,
     content: String,
+    ollama_summary: Option<String>
 }
 
 #[derive(Deserialize, Debug)]
@@ -17,7 +18,7 @@ struct DocumentsResponse {
 
 #[tokio::main]
 async fn main() {
-    let documents = load_documents_to_process(
+    let mut documents = load_documents_to_process(
         env!("PAPERLESSNGX_URL").to_string(),
         env!("PAPERLESSNGX_TOKEN").to_string(),
         env!("PAPERLESSNGX_TAGS").to_string(),
@@ -25,16 +26,24 @@ async fn main() {
         .await
         .unwrap();
 
-    generate_documents_summary_via_ollama(documents).await;
+    documents = generate_documents_summary_via_ollama(documents).await;
+
+    println!("{:?}", documents)
 }
 
-async fn generate_documents_summary_via_ollama(documents: Vec<Document>) {
-    for document in documents.iter() {
-        generate_document_summary_via_ollama(document).await;
+async fn generate_documents_summary_via_ollama(documents: Vec<Document>) -> Vec<Document> {
+    let mut updated_documents = documents;
+
+    for document in updated_documents.iter_mut() {
+        document.ollama_summary = Some(generate_document_summary_via_ollama(document).await);
+
+        println!("{}: {:?}", document.id, document.ollama_summary)
     }
+
+    updated_documents
 }
 
-async fn generate_document_summary_via_ollama(document: &Document) {
+async fn generate_document_summary_via_ollama(document: &Document) -> String {
     let ollama = Ollama::new(env!("OLLAMA_HOST"), env!("OLLAMA_PORT").parse::<u16>().unwrap());
     let model = "llama3:latest";
     let prompt = format!(
@@ -69,7 +78,9 @@ async fn generate_document_summary_via_ollama(document: &Document) {
     ).await;
 
     if let Ok(res) = res {
-        println!("{}", res.response);
+        json::parse(&*res.response).unwrap()["summary"].to_string()
+    } else {
+        "".to_string()
     }
 }
 
