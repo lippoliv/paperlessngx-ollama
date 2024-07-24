@@ -9,33 +9,37 @@ struct Documents {
 
 #[derive(Deserialize, Debug)]
 struct DocumentsResponse {
-    count: u32,
     results: Vec<Documents>,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() {
+    let documents = load_documents_to_process(
+        env!("PAPERLESSNGX_URL").to_string(),
+        env!("PAPERLESSNGX_TOKEN").to_string(),
+        env!("PAPERLESSNGX_TAGS").to_string(),
+    ).await;
+
+    println!("{:?}", documents)
+}
+
+async fn load_documents_to_process(paperless_url: String, paperless_token: String, paperless_tags: String) -> Result<Vec<Documents>, Error> {
     let request_url = format!(
-        "{paperlessngx_url}/api/documents/?tags__id__all={tags_filter}",
-        paperlessngx_url = env!("PAPERLESSNGX_URL"),
-        tags_filter = env!("PAPERLESSNGX_TAGS")
+        "{paperless_url}/api/documents/?tags__id__all={paperless_tags}",
     );
     let response = Client::new()
         .get(&request_url)
         .header(
-             "Authorization",
+            "Authorization",
             format!(
-                "Token {token}",
-                token = env!("PAPERLESSNGX_TOKEN")
+                "Token {paperless_token}",
             ),
         )
         .send()
         .await?;
 
     if response.status().is_success() {
-        let documents = response.json::<DocumentsResponse>().await?;
-        println!("{:?}", documents);
-        Ok(())
+        Ok(response.json::<DocumentsResponse>().await?.results)
     } else {
         println!("{:?}", response);
         panic!("Couldn't load documents")
