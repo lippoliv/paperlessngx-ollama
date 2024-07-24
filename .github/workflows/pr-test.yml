@@ -1,0 +1,23 @@
+name: PR test
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+
+jobs:
+  validate-pr-title:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: PR Conventional Commit Validation
+        uses: ytanikin/PRConventionalCommits@8d258b54939f6769fcd935a52b96d6b0383a00c5 # 1.2.0
+        with:
+          task_types: '["build", "ci", "docs", "feat", "fix", "perf", "refactor", "style", "test", "chore"]'
+          add_label: 'true'
