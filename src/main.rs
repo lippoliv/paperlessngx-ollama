@@ -25,32 +25,37 @@ struct DocumentsResponse {
 
 #[tokio::main]
 async fn main() {
-    let mut documents = load_documents_to_process(
-        std::env::var("PAPERLESSNGX_URL").unwrap(),
-        std::env::var("PAPERLESSNGX_TOKEN").unwrap(),
-        std::env::var("PAPERLESSNGX_TAGS").unwrap(),
-    )
-    .await
-    .unwrap();
+    let mut run = true;
 
-    documents = generate_documents_summary_via_ollama(
-        documents,
-        std::env::var("OLLAMA_HOST").unwrap(),
-        std::env::var("OLLAMA_PORT")
-            .unwrap()
-            .parse::<u16>()
-            .unwrap(),
-        std::env::var("OLLAMA_LANGUAGE").unwrap(),
-    )
-    .await;
-    for document in documents {
-        update_document(
-            document,
+    while run {
+        let mut documents = load_documents_to_process(
             std::env::var("PAPERLESSNGX_URL").unwrap(),
             std::env::var("PAPERLESSNGX_TOKEN").unwrap(),
             std::env::var("PAPERLESSNGX_TAGS").unwrap(),
         )
+        .await
+        .unwrap();
+        run = documents.len() > 0;
+
+        documents = generate_documents_summary_via_ollama(
+            documents,
+            std::env::var("OLLAMA_HOST").unwrap(),
+            std::env::var("OLLAMA_PORT")
+                .unwrap()
+                .parse::<u16>()
+                .unwrap(),
+            std::env::var("OLLAMA_LANGUAGE").unwrap(),
+        )
         .await;
+        for document in documents {
+            update_document(
+                document,
+                std::env::var("PAPERLESSNGX_URL").unwrap(),
+                std::env::var("PAPERLESSNGX_TOKEN").unwrap(),
+                std::env::var("PAPERLESSNGX_TAGS").unwrap(),
+            )
+            .await;
+        }
     }
 }
 
