@@ -18,6 +18,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
+name = "async-trait"
+version = "0.1.81"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e0c28dcc82d7c8ead5cb13beb15405b57b8546e93215673ff8ca0349a028107"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -482,6 +493,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ollama-rs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "255252ec57e13d2d6ae074c7b7cd8c004d17dafb1e03f954ba2fd5cc226f8f49"
+dependencies = [
+ "async-trait",
+ "log",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -535,6 +560,7 @@ dependencies = [
 name = "paperlessngx-ollama"
 version = "0.1.0"
 dependencies = [
+ "ollama-rs",
  "reqwest",
  "serde",
  "tokio",

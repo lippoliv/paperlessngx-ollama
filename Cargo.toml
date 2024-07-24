@@ -9,3 +9,4 @@ edition = "2021"
 reqwest = { version = "0.12.5", features = ["json"] }
 serde = { version = "1.0.204", features = ["derive"] }
 tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }
+ollama-rs = "0.2.0"
