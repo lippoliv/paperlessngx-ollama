@@ -3,6 +3,7 @@ use ollama_rs::generation::parameters::FormatType;
 use ollama_rs::Ollama;
 use reqwest::{Client, Error};
 use serde::{Deserialize, Serialize};
+use substring::Substring;
 
 #[derive(Serialize, Debug)]
 struct DocumentUpdateRequest {
@@ -73,7 +74,7 @@ async fn update_document(
     };
 
     let document_updates = DocumentUpdateRequest {
-        title: summary[..limit].to_string(),
+        title: summary.to_string().substring(0, limit).parse().unwrap(),
         tags: document
             .tags
             .iter()
@@ -168,7 +169,7 @@ async fn generate_document_summary_via_ollama(
                 model.to_string(),
                 format!(
                     "{prompt} {content}",
-                    content = document.content[..limit].to_string()
+                    content = document.content.to_string().substring(0, limit)
                 ),
             )
             .format(FormatType::Json),
