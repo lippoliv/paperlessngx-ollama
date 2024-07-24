@@ -26,27 +26,45 @@ struct DocumentsResponse {
 #[tokio::main]
 async fn main() {
     let mut documents = load_documents_to_process(
-        env!("PAPERLESSNGX_URL").to_string(),
-        env!("PAPERLESSNGX_TOKEN").to_string(),
-        env!("PAPERLESSNGX_TAGS").to_string(),
+        std::env::var("PAPERLESSNGX_URL").unwrap(),
+        std::env::var("PAPERLESSNGX_TOKEN").unwrap(),
+        std::env::var("PAPERLESSNGX_TAGS").unwrap(),
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
 
-    documents = generate_documents_summary_via_ollama(documents).await;
+    documents = generate_documents_summary_via_ollama(
+        documents,
+        std::env::var("OLLAMA_HOST").unwrap(),
+        std::env::var("OLLAMA_PORT")
+            .unwrap()
+            .parse::<u16>()
+            .unwrap(),
+        std::env::var("OLLAMA_LANGUAGE").unwrap(),
+    )
+    .await;
     for document in documents {
         update_document(
             document,
-            env!("PAPERLESSNGX_URL").to_string(),
-            env!("PAPERLESSNGX_TAGS").to_string(),
-        ).await;
+            std::env::var("PAPERLESSNGX_URL").unwrap(),
+            std::env::var("PAPERLESSNGX_TOKEN").unwrap(),
+            std::env::var("PAPERLESSNGX_TAGS").unwrap(),
+        )
+        .await;
     }
 }
 
-async fn update_document(document: Document, paperless_url: String, paperless_tag: String) {
+async fn update_document(
+    document: Document,
+    paperless_url: String,
+    paperless_token: String,
+    paperless_tag: String,
+) {
     let document_updates = DocumentUpdateRequest {
         title: document.ollama_summary.unwrap(),
-        tags: document.tags.iter()
+        tags: document
+            .tags
+            .iter()
             .copied()
             .filter(|&x| x.to_string() != paperless_tag)
             .collect(),
@@ -58,13 +76,7 @@ async fn update_document(document: Document, paperless_url: String, paperless_ta
     );
     let response = Client::new()
         .patch(&request_url)
-        .header(
-            "Authorization",
-            format!(
-                "Token {paperless_token}",
-                paperless_token = env!("PAPERLESSNGX_TOKEN").to_string()
-            ),
-        )
+        .header("Authorization", format!("Token {paperless_token}",))
         .json(&document_updates)
         .send()
         .await
@@ -77,11 +89,24 @@ async fn update_document(document: Document, paperless_url: String, paperless_ta
     }
 }
 
-async fn generate_documents_summary_via_ollama(documents: Vec<Document>) -> Vec<Document> {
+async fn generate_documents_summary_via_ollama(
+    documents: Vec<Document>,
+    ollama_host: String,
+    ollama_port: u16,
+    ollama_response_language: String,
+) -> Vec<Document> {
     let mut updated_documents = documents;
 
     for document in updated_documents.iter_mut() {
-        document.ollama_summary = Some(generate_document_summary_via_ollama(document).await);
+        document.ollama_summary = Some(
+            generate_document_summary_via_ollama(
+                document,
+                ollama_host.clone(),
+                ollama_port,
+                ollama_response_language.clone(),
+            )
+            .await,
+        );
 
         println!("{}: {:?}", document.id, document.ollama_summary)
     }
@@ -89,8 +114,13 @@ async fn generate_documents_summary_via_ollama(documents: Vec<Document>) -> Vec<
     updated_documents
 }
 
-async fn generate_document_summary_via_ollama(document: &Document) -> String {
-    let ollama = Ollama::new(env!("OLLAMA_HOST"), env!("OLLAMA_PORT").parse::<u16>().unwrap());
+async fn generate_document_summary_via_ollama(
+    document: &Document,
+    ollama_host: String,
+    ollama_port: u16,
+    ollama_response_language: String,
+) -> String {
+    let ollama = Ollama::new(ollama_host, ollama_port);
     let model = "llama3:latest";
     let prompt = format!(
         "summarize the following text within 150 characters.\
@@ -106,8 +136,7 @@ async fn generate_document_summary_via_ollama(document: &Document) -> String {
         do not write the sender of the letter.\
         \
         format your answer as json where the summary is in the field 'summary'\
-        the summary must be in {lang} language \n\n",
-        lang = env!("OLLAMA_LANGUAGE")
+        the summary must be in {ollama_response_language} language \n\n"
     );
 
     let limit = if document.content.len() < 4096 {
@@ -116,12 +145,18 @@ async fn generate_document_summary_via_ollama(document: &Document) -> String {
         4096
     };
 
-    let res = ollama.generate(
-        GenerationRequest::new(
-            model.to_string(),
-            format!("{prompt} {content}", content = document.content[..limit].to_string()),
-        ).format(FormatType::Json)
-    ).await;
+    let res = ollama
+        .generate(
+            GenerationRequest::new(
+                model.to_string(),
+                format!(
+                    "{prompt} {content}",
+                    content = document.content[..limit].to_string()
+                ),
+            )
+            .format(FormatType::Json),
+        )
+        .await;
 
     if let Ok(res) = res {
         json::parse(&*res.response).unwrap()["summary"].to_string()
@@ -130,18 +165,15 @@ async fn generate_document_summary_via_ollama(document: &Document) -> String {
     }
 }
 
-async fn load_documents_to_process(paperless_url: String, paperless_token: String, paperless_tags: String) -> Result<Vec<Document>, Error> {
-    let request_url = format!(
-        "{paperless_url}/api/documents/?tags__id__all={paperless_tags}",
-    );
+async fn load_documents_to_process(
+    paperless_url: String,
+    paperless_token: String,
+    paperless_tags: String,
+) -> Result<Vec<Document>, Error> {
+    let request_url = format!("{paperless_url}/api/documents/?tags__id__all={paperless_tags}",);
     let response = Client::new()
         .get(&request_url)
-        .header(
-            "Authorization",
-            format!(
-                "Token {paperless_token}",
-            ),
-        )
+        .header("Authorization", format!("Token {paperless_token}",))
         .send()
         .await?;
 
