@@ -60,8 +60,15 @@ async fn update_document(
     paperless_token: String,
     paperless_tag: String,
 ) {
+    let summary = document.ollama_summary.unwrap();
+    let limit = if summary.len() < 125 {
+        summary.len()
+    } else {
+        125
+    };
+
     let document_updates = DocumentUpdateRequest {
-        title: document.ollama_summary.unwrap(),
+        title: summary[..limit].to_string(),
         tags: document
             .tags
             .iter()
@@ -85,7 +92,12 @@ async fn update_document(
     if response.status().is_success() {
         println!("Document {} updated", document.id)
     } else {
-        panic!("Couldn't update document {} {:?}", document.id, response)
+        panic!(
+            "Couldn't update document {} {:?} {}",
+            document.id,
+            response.status(),
+            response.text().await.unwrap()
+        )
     }
 }
 
@@ -123,7 +135,7 @@ async fn generate_document_summary_via_ollama(
     let ollama = Ollama::new(ollama_host, ollama_port);
     let model = "llama3:latest";
     let prompt = format!(
-        "summarize the following text within 150 characters.\
+        "summarize the following text within 120 characters.\
         this summary will be used in a document management system to later find the latter.\
         focus on the start of the text.\
         ignore address information.\
