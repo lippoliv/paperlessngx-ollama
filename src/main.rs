@@ -45,6 +45,7 @@ async fn main() {
                 .unwrap()
                 .parse::<u16>()
                 .unwrap(),
+            std::env::var("OLLAMA_MODEL").unwrap(),
             std::env::var("OLLAMA_LANGUAGE").unwrap(),
         )
         .await;
@@ -74,7 +75,7 @@ async fn update_document(
     };
 
     let document_updates = DocumentUpdateRequest {
-        title: summary.to_string().substring(0, limit).parse().unwrap(),
+        title: summary.to_string().substring(0, 125).parse().unwrap(),
         tags: document
             .tags
             .iter()
@@ -111,6 +112,7 @@ async fn generate_documents_summary_via_ollama(
     documents: Vec<Document>,
     ollama_host: String,
     ollama_port: u16,
+    ollama_model: String,
     ollama_response_language: String,
 ) -> Vec<Document> {
     let mut updated_documents = documents;
@@ -121,6 +123,7 @@ async fn generate_documents_summary_via_ollama(
                 document,
                 ollama_host.clone(),
                 ollama_port,
+                ollama_model.clone(),
                 ollama_response_language.clone(),
             )
             .await,
@@ -136,10 +139,10 @@ async fn generate_document_summary_via_ollama(
     document: &Document,
     ollama_host: String,
     ollama_port: u16,
+    ollama_model: String,
     ollama_response_language: String,
 ) -> String {
     let ollama = Ollama::new(ollama_host, ollama_port);
-    let model = "llama3:latest";
     let prompt = format!(
         "summarize the following text within 120 characters.\
         this summary will be used in a document management system to later find the latter.\
@@ -166,7 +169,7 @@ async fn generate_document_summary_via_ollama(
     let res = ollama
         .generate(
             GenerationRequest::new(
-                model.to_string(),
+                ollama_model,
                 format!(
                     "{prompt} {content}",
                     content = document.content.to_string().substring(0, limit)
