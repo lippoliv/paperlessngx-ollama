@@ -68,11 +68,6 @@ async fn update_document(
     paperless_tag: String,
 ) {
     let summary = document.ollama_summary.unwrap();
-    let limit = if summary.len() < 125 {
-        summary.len()
-    } else {
-        125
-    };
 
     let document_updates = DocumentUpdateRequest {
         title: summary.to_string().substring(0, 125).parse().unwrap(),
@@ -160,19 +155,13 @@ async fn generate_document_summary_via_ollama(
         the summary must be in {ollama_response_language} language \n\n"
     );
 
-    let limit = if document.content.len() < 4096 {
-        document.content.len()
-    } else {
-        4096
-    };
-
     let res = ollama
         .generate(
             GenerationRequest::new(
                 ollama_model,
                 format!(
                     "{prompt} {content}",
-                    content = document.content.to_string().substring(0, limit)
+                    content = document.content.to_string().substring(0, 4096)
                 ),
             )
             .format(FormatType::Json),
