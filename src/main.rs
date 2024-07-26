@@ -164,7 +164,8 @@ async fn generate_document_summary_via_ollama(
                     content = document.content.to_string().substring(0, 4096)
                 ),
             )
-            .format(FormatType::Json),
+            .format(FormatType::Json)
+            .options(GenerationOptions::default().temperature(0.5f32)),
         )
         .await;
 
