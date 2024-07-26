@@ -1,4 +1,5 @@
 use ollama_rs::generation::completion::request::GenerationRequest;
+use ollama_rs::generation::options::GenerationOptions;
 use ollama_rs::generation::parameters::FormatType;
 use ollama_rs::Ollama;
 use reqwest::{Client, Error};
@@ -85,7 +86,7 @@ async fn update_document(
     );
     let response = Client::new()
         .patch(&request_url)
-        .header("Authorization", format!("Token {paperless_token}",))
+        .header("Authorization", format!("Token {paperless_token}"))
         .json(&document_updates)
         .send()
         .await
@@ -139,20 +140,27 @@ async fn generate_document_summary_via_ollama(
 ) -> String {
     let ollama = Ollama::new(ollama_host, ollama_port);
     let prompt = format!(
-        "summarize the following text within 120 characters.\
-        this summary will be used in a document management system to later find the latter.\
-        focus on the start of the text.\
-        ignore address information.\
-        \
-        the summary must be one sentence.\
-        just write the summary.\
-        \
-        if you find an invoice number, mention it.\
-        if it's a reminder for an invoice, mention it.\
-        do not write the sender of the letter.\
-        \
-        format your answer as json where the summary is in the field 'summary'\
-        the summary must be in {ollama_response_language} language \n\n"
+        "you help me describing a text for my document management system.
+        you respond a json object with the following fields
+        - summary: string
+        - is_invoice: bool
+        - invoice_number: string
+        - invoice_amount: float
+
+        just write the json object, no surrounding text.
+
+        the summary must not be longer than 120 characters.
+        the summary will be used in a document management system to later find the latter.
+        the summary must not contain address information.
+        the summary must not contain the senders name.
+        the summary must be in {ollama_response_language} language.
+
+        the is_invoice should indicate if the text is an invoice or not.
+
+        invoice_number should be empty if it's not an invoice.
+
+        invoice_amount should be empty if it's not an invoice.
+        invoice_amount should contain the invoices total amount.\n\n\n"
     );
 
     let res = ollama
@@ -181,10 +189,10 @@ async fn load_documents_to_process(
     paperless_token: String,
     paperless_tags: String,
 ) -> Result<Vec<Document>, Error> {
-    let request_url = format!("{paperless_url}/api/documents/?tags__id__all={paperless_tags}",);
+    let request_url = format!("{paperless_url}/api/documents/?tags__id__all={paperless_tags}");
     let response = Client::new()
         .get(&request_url)
-        .header("Authorization", format!("Token {paperless_token}",))
+        .header("Authorization", format!("Token {paperless_token}"))
         .send()
         .await?;
 
